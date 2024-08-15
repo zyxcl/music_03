@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { bannerApi, personalizedApi } from '../../api/index'
+import { bannerApi, personalizedApi } from '../../api'
+import type { BannerItem, PersonalizedItem } from '../../api/type'
 import { ballList } from './ball'
 
 const goSearch = () => {
@@ -9,8 +10,8 @@ const goSearch = () => {
   })
 }
 
-const banners = ref([])
-const playlist = ref([])
+const banners = ref<BannerItem[]>([])
+const playlist = ref<PersonalizedItem[]>([])
 
 bannerApi().then(res => {
   banners.value = res.data.banners
@@ -18,12 +19,11 @@ bannerApi().then(res => {
 
 
 personalizedApi().then(res => {
-  console.log(res.data.result);
   playlist.value = res.data.result
 })
 
 
-const goDetail = id => {
+const goDetail = (id: number) => {
   uni.navigateTo({
     url: `/pages/songList/songList?id=${id}`
   })
@@ -35,13 +35,15 @@ const goDetail = id => {
     <uni-icons type="list" size="30"></uni-icons>
     <view class="goSearch" @click="goSearch">搜索</view>
   </view>
+  
   <view class="swiper-wrap">
     <swiper indicator-dots>
-      <swiper-item v-for="item in banners" :key="item.imageUrl">
+      <swiper-item v-for="item in banners" :key="item.targetId">
         <image :src="item.imageUrl" mode="widthFix"></image>
       </swiper-item>
     </swiper>
   </view>
+  
   <scroll-view scroll-x enable-flex style="flex-direction: row;">
     <view class="ball-wrap">
       <view class="ball" v-for="item in ballList" :key="item.id">

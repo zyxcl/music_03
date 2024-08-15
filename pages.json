@@ -17,7 +17,7 @@
       "path" : "pages/search/search",
       "style" : 
       {
-        "navigationBarTitleText" : "",
+        "navigationBarTitleText" : "搜索",
         "enablePullDownRefresh" : false
       }
     },
@@ -25,7 +25,7 @@
       "path" : "pages/songList/songList",
       "style" : 
       {
-        "navigationBarTitleText" : "",
+        "navigationBarTitleText" : "歌单",
         "enablePullDownRefresh" : false
       }
     }
