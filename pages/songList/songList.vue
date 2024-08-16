@@ -30,6 +30,11 @@ onLoad(async (options) => {
 const open = () => {
   popup.value.open('bottom')
 }
+const goPlayer = (id: number) => {
+  uni.navigateTo({
+    url: `/pages/player/player?id=${id}`
+  })
+}
 </script>
 
 <template>
@@ -62,13 +67,15 @@ const open = () => {
   
   <view class="songlist">
     <uni-list>
+      <uni-list-item title="播放全部" link clickable></uni-list-item>
     	<uni-list-item
         v-for="(item, index) in playlistDetail.tracks"
         :key="item.id"
         :title="item.name"
         :note="item.ar.map(v => v.name).join('/')"
-         link
-        clickable 
+        link
+        clickable
+        @click="goPlayer(item.id)"
       >
       <!-- 自定义 header -->
         <template v-slot:header>

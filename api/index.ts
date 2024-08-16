@@ -3,7 +3,10 @@ import type {
   BannerRes,
   PersonalizedRes,
   PlaylistDetailRes,
-  CommentPlaylistRes
+  CommentPlaylistRes,
+  SongDetailRes,
+  LyricRes,
+  SongUrlRes
 } from './type'
 
 
@@ -43,3 +46,31 @@ export const commentPlaylistApi = (id: string) => {
   })
 }
 
+
+// 歌曲详情
+export const songDetailApi = (ids: string | number) => {
+  return request<SongDetailRes>({
+    url: 'https://zyxcl.xyz/music/api/song/detail',
+    data: {
+      ids
+    }
+  })
+}
+// 歌词
+export const lyricApi = (id: string | number) => {
+  return request<LyricRes>({
+    url: 'https://zyxcl.xyz/music/api/lyric',
+    data: {
+      id
+    }
+  })
+}
+// 音乐url
+export const songUrlApi = (id: string | number) => {
+  return request<SongUrlRes>({
+    url: 'https://zyxcl.xyz/music/api/song/url',
+    data: {
+      id
+    }
+  })
+}
