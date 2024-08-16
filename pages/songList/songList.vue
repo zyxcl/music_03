@@ -2,10 +2,11 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { playlistDetailApi, commentPlaylistApi } from '../../api'
-import type { PlaylistDetail, CommentItem } from '../../api/type'
+import type { PlaylistDetail, CommentItem, Song } from '../../api/type'
+import { usePlayerStore } from '../../stores/player'
   
+const playerStore = usePlayerStore()
 const popup = ref<any>(null)
-
 const playlistDetail = ref<PlaylistDetail>({} as PlaylistDetail)  
 const hotComments = ref<CommentItem[]>([])
 const comments = ref<CommentItem[]>([])
@@ -30,7 +31,16 @@ onLoad(async (options) => {
 const open = () => {
   popup.value.open('bottom')
 }
-const goPlayer = (id: number) => {
+const goPlayer = (item: Song) => {
+  // 把当前歌曲添加到store中
+  playerStore.pushSong(item)
+  uni.navigateTo({
+    url: `/pages/player/player?id=${item.id}`
+  })
+}
+const playAll = () => {
+  playerStore.pushAll(playlistDetail.value.tracks)
+  const id = playlistDetail.value.tracks[0].id
   uni.navigateTo({
     url: `/pages/player/player?id=${id}`
   })
@@ -67,7 +77,7 @@ const goPlayer = (id: number) => {
   
   <view class="songlist">
     <uni-list>
-      <uni-list-item title="播放全部" link clickable></uni-list-item>
+      <uni-list-item title="播放全部" link clickable @click="playAll"></uni-list-item>
     	<uni-list-item
         v-for="(item, index) in playlistDetail.tracks"
         :key="item.id"
@@ -75,7 +85,8 @@ const goPlayer = (id: number) => {
         :note="item.ar.map(v => v.name).join('/')"
         link
         clickable
-        @click="goPlayer(item.id)"
+        :rightText="playerStore.activeIndex === index ? '正在播放' : ''"
+        @click="goPlayer(item)"
       >
       <!-- 自定义 header -->
         <template v-slot:header>

@@ -1,5 +1,8 @@
 <script>
 	export default {
+    globalData: {
+      innerAudioContex: uni.createInnerAudioContext()
+    },
 		onLaunch: function() {
 			console.log('App Launch')
 		},

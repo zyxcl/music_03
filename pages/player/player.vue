@@ -1,30 +1,45 @@
 <script setup lang="ts">
 import { onLoad } from '@dcloudio/uni-app'
-import { ref, watch } from 'vue';
+import { computed, ref, watch, watchEffect } from 'vue';
 import { songDetailApi, lyricApi, songUrlApi } from '../../api'
 import { Song } from '../../api/type'
+import { usePlayerStore } from '../../stores/player'
+  
+const playerStore = usePlayerStore()
+const app = getApp()
+const popup = ref<any>(null)
 
-const song = ref<Song>({} as Song)
-const lyric = ref('')
+const showLyric = ref(false)
+const lyric = ref<{ time: number; text: string; }[]>([])
 const url = ref('')
 const paused = ref(true)
 const duration = ref(0)
 const currentTime = ref(0)
 
-const getSongDetail = async (id: string) => {
-  try {
-    const res = await songDetailApi(id)
-    console.log(res.data.songs[0])
-    song.value = res.data.songs[0]
-  } catch(e) {
-    console.log(e)
-  }
+function parseLyrics(lyrics: string) {
+  // 定义一个正则表达式来匹配时间戳和歌词文本
+  const regex = /\[(\d{2}:\d{2}\.\d{2})\](.*)/;
+  // 使用正则表达式分割字符串，得到包含时间戳和文本的数组
+  const entries = lyrics.split('\n').map(line => {
+    const match = line.match(regex);
+    if (match) {
+      const [m, s] = match[1].split(':')
+      const time = Number(m) * 60 + Number(s) * 1
+      // 返回一个包含时间戳和文本的对象
+      return { time, text: match[2].trim() };
+    }
+    return null;
+  }).filter(Boolean)
+
+  return entries;
 }
+
+// 歌词
 const getLyric = async (id: string) => {
   try {
     const res = await lyricApi(id)
-    // console.log(res.data.lrc.lyric)
-    lyric.value = res.data.lrc.lyric
+    lyric.value = parseLyrics(res.data.lrc.lyric)
+    console.log(parseLyrics(res.data.lrc.lyric));
     
   } catch(e) {
     uni.showToast({
@@ -33,6 +48,7 @@ const getLyric = async (id: string) => {
     })
   }
 }
+// 播放的url
 const getSongUrl = async (id: string) => {
   try {
     const res = await songUrlApi(id)
@@ -47,18 +63,22 @@ const getSongUrl = async (id: string) => {
 
 
 onLoad(async (options) => {
-  getSongDetail(options?.id)
   getLyric(options?.id)
   getSongUrl(options?.id)
 })
+// 从store中获取数据
+const song = computed(() => {
+  return playerStore.playList[playerStore.activeIndex]
+})
 
-watch(song, () => {
+// 修改标题
+watchEffect(() => {
   uni.setNavigationBarTitle({
     title: song.value.name + '-' + song.value.ar.map((v => v.name)).join('/')
   })
 })
 
-
+// 格式化时间
 const formatTime = (n: number) => {
   let m: number | string = Math.floor(n / 60)
   let s: number | string = Math.floor(n % 60)
@@ -68,35 +88,31 @@ const formatTime = (n: number) => {
 }
 
 // 创建播放器对象
-const innerAudioContext = uni.createInnerAudioContext();
+const innerAudioContext = app.globalData?.innerAudioContex
 innerAudioContext.autoplay = true
-
 innerAudioContext.onCanplay(() => {
   duration.value = innerAudioContext.duration
 })
 innerAudioContext.onPlay(() => {
-  console.log('开始播放')
   paused.value = false
 })
-
 innerAudioContext.onPause(() => {
-  console.log('暂停')
   paused.value = true
 })
-innerAudioContext.onError((res) => {
-  console.log(res.errMsg);
-  console.log(res.errCode);
+innerAudioContext.onEnded(() => {
+  changeSong(1)
 })
 
 innerAudioContext.onTimeUpdate(() => {
   currentTime.value = innerAudioContext.currentTime
 })
 
+// 修改播放地址
 watch(url, () => {
-  innerAudioContext.src = url.value
-  console.log('url赋值');
+  innerAudioContext.src = url.value  
 })
 
+// 播放暂停
 const play = () => {
   if (innerAudioContext.paused) {
     innerAudioContext.play()
@@ -105,15 +121,37 @@ const play = () => {
   }
 }
 
+// 展示播放列表
+const open = () => {
+  popup.value.open('bottom')
+}
+// 下一首
+const changeSong = (n: number) => {
+  let index = playerStore.activeIndex + n
+  if (index < 0) {
+    index = playerStore.playList.length - 1
+  }
+  if (index > playerStore.playList.length - 1) {
+    index = 0
+  }
+  playerStore.activeIndex = index
+  uni.redirectTo({
+    url: `/pages/player/player?id=${song.value.id}`
+  })
+}
 </script>
 
 <template>
   <view class="page">
-    <view class="top">
-      <view class="img">
+    <view class="top" @click="showLyric = !showLyric">
+      <scroll-view class="lyric" v-if="showLyric" scroll-y>
+        <view class="lyric-row" v-for="item in lyric" :key="item.time">
+          {{item.text}}
+        </view>
+      </scroll-view>
+      <view class="img" v-else>
         <image :src="song.al?.picUrl" mode="widthFix"></image>
       </view>
-      <view class="lyric"></view>
     </view>
     <view class="controller">
       <view class="icons">
@@ -127,15 +165,35 @@ const play = () => {
       </view>
       <view class="btns">
         <uni-icons type="refreshempty" size="30"></uni-icons>
-        <uni-icons type="arrow-left" size="30"></uni-icons>
+        <uni-icons type="arrow-left" size="30" @click="changeSong(-1)"></uni-icons>
         <view @click="play">
-          <uni-icons v-if="paused" type="circle-filled" size="30"></uni-icons>
-          <uni-icons v-else type="arrow-up" size="30"></uni-icons>
+          <uni-icons v-if="paused" type="arrow-up" size="30"></uni-icons>
+          <uni-icons v-else  type="circle-filled" size="30"></uni-icons>
         </view>
-        <uni-icons type="arrow-right" size="30"></uni-icons>
-        <uni-icons type="settings-filled" size="30"></uni-icons>
+        <uni-icons type="arrow-right" size="30" @click="changeSong(1)"></uni-icons>
+        <uni-icons type="settings-filled" size="30" @click="open"></uni-icons>
       </view>
     </view>
+  
+    
+    
+    <uni-popup ref="popup" border-radius="10px 10px 0 0">
+      <scroll-view class="popup-list" scroll-y>
+        <uni-section title="播放列表" type="line">
+          <uni-list>
+          	<uni-list-item
+              v-for="(item, index) in playerStore.playList"
+              :key="item.id"
+              :title="item.name"
+              :note="item.ar.map(v => v.name).join('/')"
+              :thumb="item.al.picUrl"
+              :rightText="playerStore.activeIndex === index ? '正在播放' : ''"
+            >
+            </uni-list-item>
+          </uni-list>
+        </uni-section>
+      </scroll-view>
+    </uni-popup>
   </view>
 </template>
 
@@ -197,5 +255,15 @@ uni-page-body {
   display: flex;
   align-items: center;
   justify-content: space-around;
+}
+.popup-list {
+  max-height: 800rpx;
+}
+.lyric {
+  max-height: 800rpx;
+  text-align: center;
+}
+.lyric-row {
+  padding: 10rpx 0;
 }
 </style>
